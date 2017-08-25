@@ -6,6 +6,15 @@ package com.terralogic.alexle.lighttransfer.model;
 
 public class Picture {
     private String name;
+    private String url;
+
+    public Picture() {
+    }
+
+    public Picture(String name, String url) {
+        this.name = name;
+        this.url = url;
+    }
 
     public String getName() {
         return name;
@@ -13,5 +22,13 @@ public class Picture {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getUrl() {
+        return url;
+    }
+
+    public void setUrl(String url) {
+        this.url = url;
     }
 }
