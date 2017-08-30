@@ -4,5 +4,6 @@
     <color name="colorPrimaryDark">#00c3e1</color>
     <color name="colorAccent">#FF5722</color>
 
-    <color name="stored_picture_background_color">#e2e2e2</color>
+    <color name="stored_picture_background_color_unselected">#e2e2e2</color>
+    <color name="stored_picture_background_color_selected">#aff7ff</color>
 </resources>

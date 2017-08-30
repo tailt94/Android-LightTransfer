@@ -24,25 +24,54 @@ import java.util.List;
 public class PictureAdapter extends RecyclerView.Adapter<PictureAdapter.StoredPictureViewHolder> {
     private Context context;
     private List<Picture> pictures;
+    private int selectedImageCount = 0;
+    private OnImageCountChangeListener mListener;
 
-    public PictureAdapter(Context context, List<Picture> pictures) {
+    public PictureAdapter(Context context, List<Picture> pictures, OnImageCountChangeListener listener) {
         this.context = context;
         this.pictures = pictures;
+        this.mListener = listener;
+
+        for (Picture picture : pictures) {
+            if (picture.isSelected()) {
+                selectedImageCount++;
+            }
+        }
+    }
+
+    public int getSelectedImageCount() {
+        return selectedImageCount;
     }
 
     @Override
-
     public StoredPictureViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
         LayoutInflater inflater = LayoutInflater.from(parent.getContext());
         View view = inflater.inflate(R.layout.item_stored_picture, parent, false);
-        return new StoredPictureViewHolder(view);
+        return new StoredPictureViewHolder(view, new StoredPictureViewHolder.OnImageStateChangeListener() {
+            @Override
+            public void onImageStateChange(int position, boolean isSelected) {
+                if (isSelected) {
+                    selectedImageCount++;
+                } else {
+                    selectedImageCount--;
+                }
+                pictures.get(position).setSelected(isSelected);
+                mListener.onImageCountChange(selectedImageCount);
+            }
+        });
     }
 
     @Override
     public void onBindViewHolder(StoredPictureViewHolder holder, int position) {
         Picture picture = pictures.get(position);
         holder.pictureName.setText(picture.getName());
-        File imageFile = new File(picture.getUrl());
+        if (picture.isSelected()) {
+            holder.pictureLayout.setBackgroundResource(R.color.stored_picture_background_color_selected);
+        } else {
+            holder.pictureLayout.setBackgroundResource(R.color.stored_picture_background_color_unselected);
+        }
+        holder.setSelected(picture.isSelected());
+        File imageFile = new File(picture.getLocation());
         GlideApp.with(context)
                 .load(imageFile)
                 .placeholder(R.drawable.image_placeholder)
@@ -56,13 +85,72 @@ public class PictureAdapter extends RecyclerView.Adapter<PictureAdapter.StoredPi
         return pictures.size();
     }
 
-    public class StoredPictureViewHolder extends RecyclerView.ViewHolder {
+    /**
+     * Reset all images selected state to false
+     */
+    public void unselectAllImages() {
+        selectedImageCount = 0;
+        for (Picture picture : pictures) {
+            picture.setSelected(false);
+        }
+        notifyDataSetChanged();
+    }
+
+    public interface OnImageCountChangeListener {
+        void onImageCountChange(int selectedImageCount);
+    }
+
+    public static class StoredPictureViewHolder extends RecyclerView.ViewHolder implements View.OnLongClickListener,
+            View.OnClickListener{
+        private ViewGroup pictureLayout;
         private ImageView pictureImage;
         private TextView pictureName;
-        public StoredPictureViewHolder(View itemView) {
+
+        private boolean isSelected = false;
+        private OnImageStateChangeListener mListener;
+
+
+        public StoredPictureViewHolder(View itemView, OnImageStateChangeListener listener) {
             super(itemView);
+            pictureLayout = itemView.findViewById(R.id.picture_layout);
             pictureImage = itemView.findViewById(R.id.picture_image);
             pictureName = itemView.findViewById(R.id.picture_name);
+
+            mListener = listener;
+
+            pictureImage.setOnLongClickListener(this);
+            pictureImage.setOnClickListener(this);
+        }
+
+        public void setSelected(boolean selected) {
+            isSelected = selected;
+        }
+
+        @Override
+        public boolean onLongClick(View view) {
+            changeImageState();
+            return true;
+        }
+
+        @Override
+        public void onClick(View view) {
+            if (isSelected) {
+                changeImageState();
+            }
+        }
+
+        private void changeImageState() {
+            isSelected = !isSelected;
+            mListener.onImageStateChange(getAdapterPosition(), isSelected);
+            if (isSelected) {
+                pictureLayout.setBackgroundResource(R.color.stored_picture_background_color_selected);
+            } else {
+                pictureLayout.setBackgroundResource(R.color.stored_picture_background_color_unselected);
+            }
+        }
+
+        interface OnImageStateChangeListener{
+            void onImageStateChange(int position, boolean isSelected);
         }
     }
 

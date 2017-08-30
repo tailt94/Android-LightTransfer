@@ -5,7 +5,4 @@ package com.terralogic.alexle.lighttransfer.util;
  */
 
 public class Utils {
-    public static class Url {
-        public static final String PICTURES = "/storage/emulated/0/DCIM/100ANDRO";
-    }
 }

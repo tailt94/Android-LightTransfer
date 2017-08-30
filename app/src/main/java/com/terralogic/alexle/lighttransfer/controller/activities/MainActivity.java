@@ -1,7 +1,15 @@
 package com.terralogic.alexle.lighttransfer.controller.activities;
 
+import android.Manifest;
+import android.annotation.TargetApi;
 import android.app.ProgressDialog;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
+import android.os.PersistableBundle;
+import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.design.widget.NavigationView;
 import android.support.v4.widget.DrawerLayout;
@@ -11,18 +19,27 @@ import android.os.Bundle;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
+import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.Toast;
 
 import com.terralogic.alexle.lighttransfer.R;
 import com.terralogic.alexle.lighttransfer.controller.adapters.PictureAdapter;
 import com.terralogic.alexle.lighttransfer.model.Picture;
-import com.terralogic.alexle.lighttransfer.util.Utils;
 
-import java.io.File;
+import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements PictureAdapter.OnImageCountChangeListener {
+    private static final int PERMISSIONS_REQUEST_READ_EXTERNAL_STORAGE = 1;
+    private static final String BUNDLE_BACK_BUTTON_STATE = "BUNDLE_BACK_BUTTON_STATE";
+    private static final String BUNDLE_TOOLBAR_TITLE = "BUNDLE_TOOLBAR_TITLE";
+    private static final String BUNDLE_PICTURE_LIST = "BUNDLE_PICTURE_LIST";
+
     private Toolbar toolbar;
     private DrawerLayout drawer;
     private ActionBarDrawerToggle drawerToggle;
@@ -30,15 +47,36 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerView rvStoredPictures;
     private PictureAdapter rvAdapter;
 
-    List<Picture> pictures = new ArrayList<>();
+    private ArrayList<Picture> pictures = new ArrayList<>();
 
+    @SuppressWarnings("unchecked")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         bindViews();
         setupListeners();
-        new LoadImagesTask().execute();
+
+        if (savedInstanceState != null) {
+            pictures = (ArrayList<Picture>) savedInstanceState.getSerializable(BUNDLE_PICTURE_LIST);
+            showBackButton(savedInstanceState.getBoolean(BUNDLE_BACK_BUTTON_STATE));
+            getSupportActionBar().setTitle(savedInstanceState.getString(BUNDLE_TOOLBAR_TITLE));
+            setupRecyclerView();
+        } else {
+            loadImages();
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        if (rvAdapter.getSelectedImageCount() != 0) {
+            outState.putBoolean(BUNDLE_BACK_BUTTON_STATE, true);
+        } else {
+            outState.putBoolean(BUNDLE_BACK_BUTTON_STATE, false);
+        }
+        outState.putString(BUNDLE_TOOLBAR_TITLE, getSupportActionBar().getTitle().toString());
+        outState.putSerializable(BUNDLE_PICTURE_LIST, pictures);
+        super.onSaveInstanceState(outState);
     }
 
     @Override
@@ -46,13 +84,48 @@ public class MainActivity extends AppCompatActivity {
         if (drawer.isDrawerOpen(navigationView)) {
             drawer.closeDrawer(navigationView);
         } else {
-            super.onBackPressed();
+            rvAdapter.unselectAllImages();
+            onImageCountChange(0);
         }
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public void onImageCountChange(int selectedImageCount) {
+        if (selectedImageCount > 0) {
+            showBackButton(true);
+            getSupportActionBar().setTitle(Integer.toString(selectedImageCount));
+        } else if (selectedImageCount == 0) {
+            showBackButton(false);
+            getSupportActionBar().setTitle(R.string.main_activity_title);
+        }
+    }
+
+    private void showBackButton(boolean enable) {
+        if (enable) {
+            // Remove hamburger
+            drawerToggle.setDrawerIndicatorEnabled(false);
+            // Show back button
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+            drawerToggle.setToolbarNavigationClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    onBackPressed();
+                }
+            });
+
+        } else {
+            // Remove back button
+            getSupportActionBar().setDisplayHomeAsUpEnabled(false);
+            // Show hamburger
+            drawerToggle.setDrawerIndicatorEnabled(true);
+            // Remove the/any drawer toggle listener
+            drawerToggle.setToolbarNavigationClickListener(null);
+        }
     }
 
     private void bindViews() {
@@ -80,13 +153,51 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupRecyclerView() {
-        rvAdapter = new PictureAdapter(this, pictures);
+        rvAdapter = new PictureAdapter(this, pictures, this);
         RecyclerView.LayoutManager layoutManager = new GridLayoutManager(this, 2);
 
         rvStoredPictures.setAdapter(rvAdapter);
         rvStoredPictures.setHasFixedSize(true);
         rvStoredPictures.setLayoutManager(layoutManager);
         rvStoredPictures.addItemDecoration(new PictureAdapter.GridSpacingItemDecoration(2, 15,true));
+    }
+
+    /**
+     * Load all stored images from device
+     */
+    private void loadImages() {
+        //If target SDK is 23 or higher, this app will request permission at runtime
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            handleReadExternalStoragePermission();
+        } else {
+            new LoadImagesTask().execute();
+        }
+    }
+
+    @TargetApi(23)
+    private void handleReadExternalStoragePermission() {
+        if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
+                    PERMISSIONS_REQUEST_READ_EXTERNAL_STORAGE);
+        } else { //The permission is already granted
+            new LoadImagesTask().execute();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        switch (requestCode) {
+            case PERMISSIONS_REQUEST_READ_EXTERNAL_STORAGE:
+                // If request is cancelled, the result arrays are empty.
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    new LoadImagesTask().execute();
+                }
+                break;
+            default:
+                break;
+        }
     }
 
     /**
@@ -107,14 +218,35 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         protected Void doInBackground(Void... voids) {
-            File dir = new File(Utils.Url.PICTURES);
-            if (dir.isDirectory()) {
-                String[] fileNames = dir.list();
-                if (fileNames != null) {
-                    for (String fileName : fileNames) {
-                        pictures.add(new Picture(fileName, dir.getPath() + "/" + fileName));
-                    }
+            Uri uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+
+            String[] projection = {
+                    MediaStore.Images.Media._ID,
+                    MediaStore.Images.Media.DISPLAY_NAME,
+                    MediaStore.Images.Media.DATE_TAKEN,
+                    MediaStore.Images.Media.DATA,
+            };
+
+            Cursor cursor = getContentResolver().query(uri, projection, null, null, null);
+            if (cursor != null) {
+                while (cursor.moveToNext()) {
+                    Picture picture = new Picture();
+
+                    int columnNameIndex = cursor.getColumnIndex(MediaStore.Images.Media.DISPLAY_NAME);
+                    int columnTakenDateIndex = cursor.getColumnIndex(MediaStore.Images.Media.DATE_TAKEN);
+                    int columnLocationIndex = cursor.getColumnIndex(MediaStore.Images.Media.DATA);
+
+                    String name = cursor.getString(columnNameIndex);
+                    long takenDate = cursor.getLong(columnTakenDateIndex);
+                    String location = cursor.getString(columnLocationIndex);
+
+                    picture.setName(name);
+                    picture.setTakenDate(new Date(takenDate));
+                    picture.setLocation(location);
+
+                    pictures.add(picture);
                 }
+                cursor.close();
             }
             return null;
         }

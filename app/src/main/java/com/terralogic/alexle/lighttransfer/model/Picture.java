@@ -1,19 +1,26 @@
 package com.terralogic.alexle.lighttransfer.model;
 
+import java.io.Serializable;
+import java.util.Calendar;
+import java.util.Date;
+
 /**
  * Created by alex.le on 23-Aug-17.
  */
 
-public class Picture {
+public class Picture implements Serializable {
     private String name;
-    private String url;
+    private Date takenDate;
+    private String location;
+    private boolean isSelected = false;
 
     public Picture() {
     }
 
-    public Picture(String name, String url) {
+    public Picture(String name, Date takenDate, String location) {
         this.name = name;
-        this.url = url;
+        this.takenDate = takenDate;
+        this.location = location;
     }
 
     public String getName() {
@@ -24,11 +31,36 @@ public class Picture {
         this.name = name;
     }
 
-    public String getUrl() {
-        return url;
+    public Date getTakenDate() {
+        return takenDate;
     }
 
-    public void setUrl(String url) {
-        this.url = url;
+    public void setTakenDate(Date takenDate) {
+        this.takenDate = takenDate;
+    }
+
+    public String getLocation() {
+        return location;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
+    }
+
+    public boolean isSelected() {
+        return isSelected;
+    }
+
+    public void setSelected(boolean selected) {
+        isSelected = selected;
+    }
+
+    public String toLocalDate() {
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(takenDate);
+        int year = cal.get(Calendar.YEAR);
+        int month = cal.get(Calendar.MONTH) + 1;
+        int day = cal.get(Calendar.DAY_OF_MONTH);
+        return new StringBuilder().append(day).append("/").append(month).append("/").append(year).toString();
     }
 }
