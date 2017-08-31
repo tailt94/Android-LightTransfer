@@ -2,6 +2,7 @@ package com.terralogic.alexle.lighttransfer.controller.activities;
 
 import android.Manifest;
 import android.annotation.TargetApi;
+import android.app.DatePickerDialog;
 import android.app.ProgressDialog;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
@@ -23,10 +24,12 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.DatePicker;
 import android.widget.Toast;
 
 import com.terralogic.alexle.lighttransfer.R;
 import com.terralogic.alexle.lighttransfer.controller.adapters.PictureAdapter;
+import com.terralogic.alexle.lighttransfer.controller.dialogs.DatePickerDialogFragment;
 import com.terralogic.alexle.lighttransfer.model.Picture;
 
 import java.io.Serializable;
@@ -34,11 +37,14 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements PictureAdapter.OnImageCountChangeListener {
+public class MainActivity extends AppCompatActivity implements PictureAdapter.OnImageCountChangeListener,
+        DatePickerDialog.OnDateSetListener{
     private static final int PERMISSIONS_REQUEST_READ_EXTERNAL_STORAGE = 1;
     private static final String BUNDLE_BACK_BUTTON_STATE = "BUNDLE_BACK_BUTTON_STATE";
     private static final String BUNDLE_TOOLBAR_TITLE = "BUNDLE_TOOLBAR_TITLE";
     private static final String BUNDLE_PICTURE_LIST = "BUNDLE_PICTURE_LIST";
+    private static final String BUNDLE_FILTERED_PICTURE_LIST = "BUNDLE_FILTERED_PICTURE_LIST";
+    private static final String BUNDLE_IS_FILTER_MODE = "BUNDLE_IS_FILTER_MODE";
 
     private Toolbar toolbar;
     private DrawerLayout drawer;
@@ -48,6 +54,9 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.On
     private PictureAdapter rvAdapter;
 
     private ArrayList<Picture> pictures = new ArrayList<>();
+    private ArrayList<Picture> filteredPictures = new ArrayList<>();
+    private boolean isBackButtonEnabled = false;
+    private boolean isFilterMode = false;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -58,10 +67,15 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.On
         setupListeners();
 
         if (savedInstanceState != null) {
-            pictures = (ArrayList<Picture>) savedInstanceState.getSerializable(BUNDLE_PICTURE_LIST);
             showBackButton(savedInstanceState.getBoolean(BUNDLE_BACK_BUTTON_STATE));
             getSupportActionBar().setTitle(savedInstanceState.getString(BUNDLE_TOOLBAR_TITLE));
+            pictures = (ArrayList<Picture>) savedInstanceState.getSerializable(BUNDLE_PICTURE_LIST);
+            filteredPictures = (ArrayList<Picture>) savedInstanceState.getSerializable(BUNDLE_FILTERED_PICTURE_LIST);
+            isFilterMode = savedInstanceState.getBoolean(BUNDLE_IS_FILTER_MODE);
             setupRecyclerView();
+            if (isFilterMode) {
+                rvAdapter.setPictureList(filteredPictures);
+            }
         } else {
             loadImages();
         }
@@ -69,13 +83,11 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.On
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
-        if (rvAdapter.getSelectedImageCount() != 0) {
-            outState.putBoolean(BUNDLE_BACK_BUTTON_STATE, true);
-        } else {
-            outState.putBoolean(BUNDLE_BACK_BUTTON_STATE, false);
-        }
+        outState.putBoolean(BUNDLE_BACK_BUTTON_STATE, isBackButtonEnabled);
         outState.putString(BUNDLE_TOOLBAR_TITLE, getSupportActionBar().getTitle().toString());
         outState.putSerializable(BUNDLE_PICTURE_LIST, pictures);
+        outState.putSerializable(BUNDLE_FILTERED_PICTURE_LIST, filteredPictures);
+        outState.putBoolean(BUNDLE_IS_FILTER_MODE, isFilterMode);
         super.onSaveInstanceState(outState);
     }
 
@@ -84,13 +96,31 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.On
         if (drawer.isDrawerOpen(navigationView)) {
             drawer.closeDrawer(navigationView);
         } else {
+            if (isFilterMode) {
+                isFilterMode = false;
+            }
             rvAdapter.unselectAllImages();
-            onImageCountChange(0);
+            showBackButton(false);
+            getSupportActionBar().setTitle(R.string.main_activity_title);
+            rvAdapter.setPictureList(pictures);
+            filteredPictures.clear();
         }
     }
 
     @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main, menu);
+        return true;
+    }
+
+    @Override
     public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.action_filter:
+                DatePickerDialogFragment datePickerDialog = new DatePickerDialogFragment();
+                datePickerDialog.show(getSupportFragmentManager(), "DatePickerDialogFragment");
+                return true;
+        }
         return super.onOptionsItemSelected(item);
     }
 
@@ -103,6 +133,34 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.On
             showBackButton(false);
             getSupportActionBar().setTitle(R.string.main_activity_title);
         }
+    }
+
+    @Override
+    public void onDateSet(DatePicker datePicker, int year, int month, int day) {
+        isFilterMode = true;
+
+        String filteredDate = new StringBuilder().append(day).append("/")
+                .append(month + 1).append("/")
+                .append(year).toString();
+        //Show filtered date as toolbar title
+        getSupportActionBar().setTitle(filteredDate);
+
+        //Show back button
+        showBackButton(true);
+
+        //Reset all image state to unselected
+        rvAdapter.unselectAllImages();
+
+        //Reset filtered pictures
+        filteredPictures.clear();
+
+        //Show filtered images
+        for (Picture picture : pictures) {
+            if (picture.toLocalDate().equals(filteredDate)) {
+                filteredPictures.add(picture);
+            }
+        }
+        rvAdapter.setPictureList(filteredPictures);
     }
 
     private void showBackButton(boolean enable) {
@@ -126,6 +184,7 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.On
             // Remove the/any drawer toggle listener
             drawerToggle.setToolbarNavigationClickListener(null);
         }
+        isBackButtonEnabled = enable;
     }
 
     private void bindViews() {
@@ -157,7 +216,6 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.On
         RecyclerView.LayoutManager layoutManager = new GridLayoutManager(this, 2);
 
         rvStoredPictures.setAdapter(rvAdapter);
-        rvStoredPictures.setHasFixedSize(true);
         rvStoredPictures.setLayoutManager(layoutManager);
         rvStoredPictures.addItemDecoration(new PictureAdapter.GridSpacingItemDecoration(2, 15,true));
     }

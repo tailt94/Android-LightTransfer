@@ -31,16 +31,13 @@ public class PictureAdapter extends RecyclerView.Adapter<PictureAdapter.StoredPi
         this.context = context;
         this.pictures = pictures;
         this.mListener = listener;
-
-        for (Picture picture : pictures) {
-            if (picture.isSelected()) {
-                selectedImageCount++;
-            }
-        }
+        updateSelectedImageCount();
     }
 
-    public int getSelectedImageCount() {
-        return selectedImageCount;
+    public void setPictureList(List<Picture> pictures) {
+        this.pictures = pictures;
+        updateSelectedImageCount();
+        notifyDataSetChanged();
     }
 
     @Override
@@ -94,6 +91,15 @@ public class PictureAdapter extends RecyclerView.Adapter<PictureAdapter.StoredPi
             picture.setSelected(false);
         }
         notifyDataSetChanged();
+    }
+
+    private void updateSelectedImageCount() {
+        selectedImageCount = 0;
+        for (Picture picture : pictures) {
+            if (picture.isSelected()) {
+                selectedImageCount++;
+            }
+        }
     }
 
     public interface OnImageCountChangeListener {

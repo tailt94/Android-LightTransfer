@@ -59,8 +59,10 @@ public class Picture implements Serializable {
         Calendar cal = Calendar.getInstance();
         cal.setTime(takenDate);
         int year = cal.get(Calendar.YEAR);
-        int month = cal.get(Calendar.MONTH) + 1;
+        int month = cal.get(Calendar.MONTH);
         int day = cal.get(Calendar.DAY_OF_MONTH);
-        return new StringBuilder().append(day).append("/").append(month).append("/").append(year).toString();
+        return new StringBuilder().append(day).append("/")
+                .append(month + 1).append("/")
+                .append(year).toString();
     }
 }
