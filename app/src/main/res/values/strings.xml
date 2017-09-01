@@ -3,7 +3,7 @@
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
 
-    <string name="option_filter">Filter</string>
+    <string name="option_take_picture">Take picture</string>
 
     <string name="main_activity_title">Pictures</string>
 </resources>

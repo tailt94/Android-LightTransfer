@@ -2,49 +2,46 @@ package com.terralogic.alexle.lighttransfer.controller.activities;
 
 import android.Manifest;
 import android.annotation.TargetApi;
-import android.app.DatePickerDialog;
 import android.app.ProgressDialog;
+import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
-import android.os.PersistableBundle;
+import android.os.Bundle;
+import android.os.Vibrator;
 import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.design.widget.NavigationView;
+import android.support.v4.content.FileProvider;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.DatePicker;
-import android.widget.Toast;
 
 import com.terralogic.alexle.lighttransfer.R;
 import com.terralogic.alexle.lighttransfer.controller.adapters.PictureAdapter;
-import com.terralogic.alexle.lighttransfer.controller.dialogs.DatePickerDialogFragment;
 import com.terralogic.alexle.lighttransfer.model.Picture;
 
-import java.io.Serializable;
+import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
-import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements PictureAdapter.OnImageCountChangeListener,
-        DatePickerDialog.OnDateSetListener{
+public class MainActivity extends AppCompatActivity implements PictureAdapter.ItemClickListener {
     private static final int PERMISSIONS_REQUEST_READ_EXTERNAL_STORAGE = 1;
+    private static final int REQUEST_IMAGE_CAPTURE = 100;
     private static final String BUNDLE_BACK_BUTTON_STATE = "BUNDLE_BACK_BUTTON_STATE";
+    private static final String BUNDLE_SELECTED_IMAGE_COUNT= "BUNDLE_SELECTED_IMAGE_COUNT";
     private static final String BUNDLE_TOOLBAR_TITLE = "BUNDLE_TOOLBAR_TITLE";
     private static final String BUNDLE_PICTURE_LIST = "BUNDLE_PICTURE_LIST";
-    private static final String BUNDLE_FILTERED_PICTURE_LIST = "BUNDLE_FILTERED_PICTURE_LIST";
-    private static final String BUNDLE_IS_FILTER_MODE = "BUNDLE_IS_FILTER_MODE";
 
     private Toolbar toolbar;
     private DrawerLayout drawer;
@@ -54,9 +51,8 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.On
     private PictureAdapter rvAdapter;
 
     private ArrayList<Picture> pictures = new ArrayList<>();
-    private ArrayList<Picture> filteredPictures = new ArrayList<>();
+    private int selectedImageCount = 0;
     private boolean isBackButtonEnabled = false;
-    private boolean isFilterMode = false;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -68,14 +64,10 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.On
 
         if (savedInstanceState != null) {
             showBackButton(savedInstanceState.getBoolean(BUNDLE_BACK_BUTTON_STATE));
+            selectedImageCount = savedInstanceState.getInt(BUNDLE_SELECTED_IMAGE_COUNT);
             getSupportActionBar().setTitle(savedInstanceState.getString(BUNDLE_TOOLBAR_TITLE));
             pictures = (ArrayList<Picture>) savedInstanceState.getSerializable(BUNDLE_PICTURE_LIST);
-            filteredPictures = (ArrayList<Picture>) savedInstanceState.getSerializable(BUNDLE_FILTERED_PICTURE_LIST);
-            isFilterMode = savedInstanceState.getBoolean(BUNDLE_IS_FILTER_MODE);
             setupRecyclerView();
-            if (isFilterMode) {
-                rvAdapter.setPictureList(filteredPictures);
-            }
         } else {
             loadImages();
         }
@@ -84,10 +76,9 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.On
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         outState.putBoolean(BUNDLE_BACK_BUTTON_STATE, isBackButtonEnabled);
+        outState.putInt(BUNDLE_SELECTED_IMAGE_COUNT, selectedImageCount);
         outState.putString(BUNDLE_TOOLBAR_TITLE, getSupportActionBar().getTitle().toString());
         outState.putSerializable(BUNDLE_PICTURE_LIST, pictures);
-        outState.putSerializable(BUNDLE_FILTERED_PICTURE_LIST, filteredPictures);
-        outState.putBoolean(BUNDLE_IS_FILTER_MODE, isFilterMode);
         super.onSaveInstanceState(outState);
     }
 
@@ -96,14 +87,9 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.On
         if (drawer.isDrawerOpen(navigationView)) {
             drawer.closeDrawer(navigationView);
         } else {
-            if (isFilterMode) {
-                isFilterMode = false;
-            }
-            rvAdapter.unselectAllImages();
-            showBackButton(false);
-            getSupportActionBar().setTitle(R.string.main_activity_title);
-            rvAdapter.setPictureList(pictures);
-            filteredPictures.clear();
+            resetAllImagesState();
+            notifyToolbarLayoutChanged();
+            rvAdapter.notifyDataSetChanged();
         }
     }
 
@@ -116,16 +102,73 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.On
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
-            case R.id.action_filter:
-                DatePickerDialogFragment datePickerDialog = new DatePickerDialogFragment();
-                datePickerDialog.show(getSupportFragmentManager(), "DatePickerDialogFragment");
+            case R.id.action_take_picture:
+                dispatchTakePictureIntent();
                 return true;
         }
         return super.onOptionsItemSelected(item);
     }
 
     @Override
-    public void onImageCountChange(int selectedImageCount) {
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
+            //Reload all images after taking a picture
+            pictures.clear();
+            loadImages();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        switch (requestCode) {
+            case PERMISSIONS_REQUEST_READ_EXTERNAL_STORAGE:
+                // If request is cancelled, the result arrays are empty.
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    new LoadImagesTask().execute();
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    @Override
+    public void onClick(int position) {
+        Picture picture = pictures.get(position);
+        boolean isSelected = !picture.isSelected();
+        if (isSelected) {
+            selectedImageCount++;
+        } else {
+            selectedImageCount--;
+        }
+        picture.setSelected(isSelected);
+        notifyToolbarLayoutChanged();
+        rvAdapter.notifyItemChanged(position);
+
+        //Vibrate the device
+        Vibrator vibe = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+        vibe.vibrate(50);
+    }
+
+    @Override
+    public void onLongClick(int position) {
+        File imageFile = new File(pictures.get(position).getLocation());
+        Uri imageUri = FileProvider.getUriForFile(this,
+                getApplicationContext().getPackageName() + ".provider",
+                imageFile);
+
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setDataAndType(imageUri, "image/*");
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        startActivity(intent);
+    }
+
+    /**
+     * Change toolbar layout when select or deselect an image
+     */
+    private void notifyToolbarLayoutChanged() {
         if (selectedImageCount > 0) {
             showBackButton(true);
             getSupportActionBar().setTitle(Integer.toString(selectedImageCount));
@@ -135,32 +178,24 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.On
         }
     }
 
-    @Override
-    public void onDateSet(DatePicker datePicker, int year, int month, int day) {
-        isFilterMode = true;
-
-        String filteredDate = new StringBuilder().append(day).append("/")
-                .append(month + 1).append("/")
-                .append(year).toString();
-        //Show filtered date as toolbar title
-        getSupportActionBar().setTitle(filteredDate);
-
-        //Show back button
-        showBackButton(true);
-
-        //Reset all image state to unselected
-        rvAdapter.unselectAllImages();
-
-        //Reset filtered pictures
-        filteredPictures.clear();
-
-        //Show filtered images
+    /**
+     * Reset all images selected state to false
+     */
+    private void resetAllImagesState() {
+        selectedImageCount = 0;
         for (Picture picture : pictures) {
-            if (picture.toLocalDate().equals(filteredDate)) {
-                filteredPictures.add(picture);
-            }
+            picture.setSelected(false);
         }
-        rvAdapter.setPictureList(filteredPictures);
+    }
+
+    /**
+     * Open a camera app to take a picture
+     */
+    private void dispatchTakePictureIntent() {
+        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+            startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
+        }
     }
 
     private void showBackButton(boolean enable) {
@@ -243,21 +278,6 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.On
         }
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        switch (requestCode) {
-            case PERMISSIONS_REQUEST_READ_EXTERNAL_STORAGE:
-                // If request is cancelled, the result arrays are empty.
-                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    new LoadImagesTask().execute();
-                }
-                break;
-            default:
-                break;
-        }
-    }
-
     /**
      * Background task to load all stored images
      */
@@ -304,6 +324,7 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.On
 
                     pictures.add(picture);
                 }
+                Collections.reverse(pictures);
                 cursor.close();
             }
             return null;

@@ -7,7 +7,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
-import android.widget.TextView;
 
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.terralogic.alexle.lighttransfer.R;
@@ -24,50 +23,29 @@ import java.util.List;
 public class PictureAdapter extends RecyclerView.Adapter<PictureAdapter.StoredPictureViewHolder> {
     private Context context;
     private List<Picture> pictures;
-    private int selectedImageCount = 0;
-    private OnImageCountChangeListener mListener;
+    private ItemClickListener listener;
 
-    public PictureAdapter(Context context, List<Picture> pictures, OnImageCountChangeListener listener) {
+    public PictureAdapter(Context context, List<Picture> pictures, ItemClickListener listener) {
         this.context = context;
         this.pictures = pictures;
-        this.mListener = listener;
-        updateSelectedImageCount();
-    }
-
-    public void setPictureList(List<Picture> pictures) {
-        this.pictures = pictures;
-        updateSelectedImageCount();
-        notifyDataSetChanged();
+        this.listener = listener;
     }
 
     @Override
     public StoredPictureViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
         LayoutInflater inflater = LayoutInflater.from(parent.getContext());
         View view = inflater.inflate(R.layout.item_stored_picture, parent, false);
-        return new StoredPictureViewHolder(view, new StoredPictureViewHolder.OnImageStateChangeListener() {
-            @Override
-            public void onImageStateChange(int position, boolean isSelected) {
-                if (isSelected) {
-                    selectedImageCount++;
-                } else {
-                    selectedImageCount--;
-                }
-                pictures.get(position).setSelected(isSelected);
-                mListener.onImageCountChange(selectedImageCount);
-            }
-        });
+        return new StoredPictureViewHolder(view);
     }
 
     @Override
     public void onBindViewHolder(StoredPictureViewHolder holder, int position) {
         Picture picture = pictures.get(position);
-        holder.pictureName.setText(picture.getName());
         if (picture.isSelected()) {
-            holder.pictureLayout.setBackgroundResource(R.color.stored_picture_background_color_selected);
+            holder.iconCheck.setVisibility(View.VISIBLE);
         } else {
-            holder.pictureLayout.setBackgroundResource(R.color.stored_picture_background_color_unselected);
+            holder.iconCheck.setVisibility(View.INVISIBLE);
         }
-        holder.setSelected(picture.isSelected());
         File imageFile = new File(picture.getLocation());
         GlideApp.with(context)
                 .load(imageFile)
@@ -82,82 +60,35 @@ public class PictureAdapter extends RecyclerView.Adapter<PictureAdapter.StoredPi
         return pictures.size();
     }
 
-    /**
-     * Reset all images selected state to false
-     */
-    public void unselectAllImages() {
-        selectedImageCount = 0;
-        for (Picture picture : pictures) {
-            picture.setSelected(false);
-        }
-        notifyDataSetChanged();
-    }
-
-    private void updateSelectedImageCount() {
-        selectedImageCount = 0;
-        for (Picture picture : pictures) {
-            if (picture.isSelected()) {
-                selectedImageCount++;
-            }
-        }
-    }
-
-    public interface OnImageCountChangeListener {
-        void onImageCountChange(int selectedImageCount);
-    }
-
-    public static class StoredPictureViewHolder extends RecyclerView.ViewHolder implements View.OnLongClickListener,
+    public class StoredPictureViewHolder extends RecyclerView.ViewHolder implements View.OnLongClickListener,
             View.OnClickListener{
-        private ViewGroup pictureLayout;
         private ImageView pictureImage;
-        private TextView pictureName;
+        private ImageView iconCheck;
 
-        private boolean isSelected = false;
-        private OnImageStateChangeListener mListener;
-
-
-        public StoredPictureViewHolder(View itemView, OnImageStateChangeListener listener) {
+        public StoredPictureViewHolder(View itemView) {
             super(itemView);
-            pictureLayout = itemView.findViewById(R.id.picture_layout);
             pictureImage = itemView.findViewById(R.id.picture_image);
-            pictureName = itemView.findViewById(R.id.picture_name);
-
-            mListener = listener;
+            iconCheck = itemView.findViewById(R.id.icon_check);
 
             pictureImage.setOnLongClickListener(this);
             pictureImage.setOnClickListener(this);
         }
 
-        public void setSelected(boolean selected) {
-            isSelected = selected;
+        @Override
+        public void onClick(View view) {
+            listener.onClick(getAdapterPosition());
         }
 
         @Override
         public boolean onLongClick(View view) {
-            changeImageState();
+            listener.onLongClick(getAdapterPosition());
             return true;
         }
+    }
 
-        @Override
-        public void onClick(View view) {
-            if (isSelected) {
-                changeImageState();
-            }
-        }
-
-        private void changeImageState() {
-            isSelected = !isSelected;
-            mListener.onImageStateChange(getAdapterPosition(), isSelected);
-            if (isSelected) {
-                pictureLayout.setBackgroundResource(R.color.stored_picture_background_color_selected);
-            } else {
-                pictureLayout.setBackgroundResource(R.color.stored_picture_background_color_unselected);
-            }
-        }
-
-        interface OnImageStateChangeListener{
-            void onImageStateChange(int position, boolean isSelected);
-        }
+    public interface ItemClickListener{
+        void onClick(int position);
+        void onLongClick(int position);
     }
 
     public static class GridSpacingItemDecoration extends RecyclerView.ItemDecoration {

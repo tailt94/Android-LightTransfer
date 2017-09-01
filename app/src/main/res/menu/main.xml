@@ -2,7 +2,8 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
-        android:id="@+id/action_filter"
-        android:title="@string/option_filter"
+        android:id="@+id/action_take_picture"
+        android:title="@string/option_take_picture"
+        android:icon="@drawable/ic_camera"
         app:showAsAction="always"/>
 </menu>

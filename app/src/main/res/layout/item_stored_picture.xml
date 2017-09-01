@@ -1,26 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/picture_layout"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:background="@color/stored_picture_background_color_unselected">
+    android:layout_height="wrap_content">
 
     <ImageView
         android:id="@+id/picture_image"
         android:layout_width="match_parent"
         android:layout_height="@dimen/stored_picture_height"
-        android:scaleType="centerCrop"
-        android:layout_alignParentTop="true" />
-
-    <TextView
-        android:id="@+id/picture_name"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_below="@+id/picture_image"
-        android:layout_marginTop="@dimen/stored_picture_vertical_margin"
-        android:layout_marginBottom="@dimen/stored_picture_vertical_margin"
-        android:layout_centerHorizontal="true"
-        android:textColor="@android:color/black"
-        android:text="HELLO"/>
-
-</RelativeLayout>
+        android:scaleType="centerCrop" />
+    <ImageView
+        android:id="@+id/icon_check"
+        android:layout_width="@dimen/stored_picture_icon_check_size"
+        android:layout_height="@dimen/stored_picture_icon_check_size"
+        android:layout_marginStart="@dimen/stored_picture_icon_check_margin"
+        android:layout_marginTop="@dimen/stored_picture_icon_check_margin"
+        android:src="@drawable/ic_check"
+        android:visibility="invisible"
+        android:layout_gravity="start|top"/>
+</FrameLayout>
