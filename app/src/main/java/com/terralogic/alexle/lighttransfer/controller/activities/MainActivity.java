@@ -34,14 +34,17 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
-public class MainActivity extends AppCompatActivity implements PictureAdapter.ItemClickListener {
+public class MainActivity extends AppCompatActivity implements PictureAdapter.RecyclerViewClickListener {
     private static final int PERMISSIONS_REQUEST_READ_EXTERNAL_STORAGE = 1;
     private static final int REQUEST_IMAGE_CAPTURE = 100;
     private static final String BUNDLE_BACK_BUTTON_STATE = "BUNDLE_BACK_BUTTON_STATE";
     private static final String BUNDLE_SELECTED_IMAGE_COUNT= "BUNDLE_SELECTED_IMAGE_COUNT";
     private static final String BUNDLE_TOOLBAR_TITLE = "BUNDLE_TOOLBAR_TITLE";
-    private static final String BUNDLE_PICTURE_LIST = "BUNDLE_PICTURE_LIST";
+    private static final String BUNDLE_RECYCLER_VIEW_DATA = "BUNDLE_RECYCLER_VIEW_DATA";
 
     private Toolbar toolbar;
     private DrawerLayout drawer;
@@ -50,7 +53,8 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.It
     private RecyclerView rvStoredPictures;
     private PictureAdapter rvAdapter;
 
-    private ArrayList<Picture> pictures = new ArrayList<>();
+    private LinkedHashMap<String, ArrayList<Picture>> rvData = new LinkedHashMap<>();
+
     private int selectedImageCount = 0;
     private boolean isBackButtonEnabled = false;
 
@@ -66,7 +70,7 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.It
             showBackButton(savedInstanceState.getBoolean(BUNDLE_BACK_BUTTON_STATE));
             selectedImageCount = savedInstanceState.getInt(BUNDLE_SELECTED_IMAGE_COUNT);
             getSupportActionBar().setTitle(savedInstanceState.getString(BUNDLE_TOOLBAR_TITLE));
-            pictures = (ArrayList<Picture>) savedInstanceState.getSerializable(BUNDLE_PICTURE_LIST);
+            rvData = (LinkedHashMap<String, ArrayList<Picture>>) savedInstanceState.getSerializable(BUNDLE_RECYCLER_VIEW_DATA);
             setupRecyclerView();
         } else {
             loadImages();
@@ -78,7 +82,7 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.It
         outState.putBoolean(BUNDLE_BACK_BUTTON_STATE, isBackButtonEnabled);
         outState.putInt(BUNDLE_SELECTED_IMAGE_COUNT, selectedImageCount);
         outState.putString(BUNDLE_TOOLBAR_TITLE, getSupportActionBar().getTitle().toString());
-        outState.putSerializable(BUNDLE_PICTURE_LIST, pictures);
+        outState.putSerializable(BUNDLE_RECYCLER_VIEW_DATA, rvData);
         super.onSaveInstanceState(outState);
     }
 
@@ -87,6 +91,7 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.It
         if (drawer.isDrawerOpen(navigationView)) {
             drawer.closeDrawer(navigationView);
         } else {
+            vibrateDevice(50);
             resetAllImagesState();
             notifyToolbarLayoutChanged();
             rvAdapter.notifyDataSetChanged();
@@ -114,7 +119,7 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.It
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
             //Reload all images after taking a picture
-            pictures.clear();
+            rvData.clear();
             loadImages();
         }
     }
@@ -135,8 +140,15 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.It
     }
 
     @Override
-    public void onClick(int position) {
-        Picture picture = pictures.get(position);
+    public void onHeaderClick(int position) {
+        String takenDate = (String) rvAdapter.getData(position);
+        changeMultiplePictureState(takenDate, !isAllPictureSelected(takenDate));
+        vibrateDevice(50);
+    }
+
+    @Override
+    public void onItemClick(int position) {
+        Picture picture = (Picture) rvAdapter.getData(position);
         boolean isSelected = !picture.isSelected();
         if (isSelected) {
             selectedImageCount++;
@@ -147,14 +159,13 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.It
         notifyToolbarLayoutChanged();
         rvAdapter.notifyItemChanged(position);
 
-        //Vibrate the device
-        Vibrator vibe = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-        vibe.vibrate(50);
+        vibrateDevice(50);
     }
 
     @Override
-    public void onLongClick(int position) {
-        File imageFile = new File(pictures.get(position).getLocation());
+    public void onItemLongClick(int position) {
+        Picture picture = (Picture) rvAdapter.getData(position);
+        File imageFile = new File(picture.getLocation());
         Uri imageUri = FileProvider.getUriForFile(this,
                 getApplicationContext().getPackageName() + ".provider",
                 imageFile);
@@ -163,6 +174,45 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.It
         intent.setDataAndType(imageUri, "image/*");
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         startActivity(intent);
+    }
+
+    /**
+     * Check if all picture taken at the same date is selected or not
+     */
+    private boolean isAllPictureSelected(String takenDate) {
+        for (Map.Entry<String, ArrayList<Picture>> entry : rvData.entrySet()) {
+            if (takenDate.equals(entry.getKey())) {
+                ArrayList<Picture> pictures = entry.getValue();
+                for (Picture picture : pictures) {
+                    if (!picture.isSelected()) {
+                        return false;
+                    }
+                }
+                break;
+            }
+        }
+        return true;
+    }
+
+    private void changeMultiplePictureState(String takenDate, boolean selected) {
+        for (Map.Entry<String, ArrayList<Picture>> entry : rvData.entrySet()) {
+            if (takenDate.equals(entry.getKey())) {
+                ArrayList<Picture> pictures = entry.getValue();
+                for (Picture picture : pictures) {
+                    boolean isSelected = picture.isSelected();
+                    if (selected != isSelected) {
+                        picture.setSelected(selected);
+                        if (selected) {
+                            selectedImageCount++;
+                        } else {
+                            selectedImageCount--;
+                        }
+                        notifyToolbarLayoutChanged();
+                        rvAdapter.notifyDataSetChanged();
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -183,8 +233,11 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.It
      */
     private void resetAllImagesState() {
         selectedImageCount = 0;
-        for (Picture picture : pictures) {
-            picture.setSelected(false);
+        for (Map.Entry<String, ArrayList<Picture>> entry : rvData.entrySet()) {
+            ArrayList<Picture> pictures = entry.getValue();
+            for (Picture picture : pictures) {
+                picture.setSelected(false);
+            }
         }
     }
 
@@ -247,12 +300,19 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.It
     }
 
     private void setupRecyclerView() {
-        rvAdapter = new PictureAdapter(this, pictures, this);
-        RecyclerView.LayoutManager layoutManager = new GridLayoutManager(this, 2);
-
+        GridLayoutManager layoutManager = new GridLayoutManager(this, 2);
+        layoutManager.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
+            @Override
+            public int getSpanSize(int position) {
+                if (rvAdapter.isHeader(position)) {
+                    return 2;
+                }
+                return 1;
+            }
+        });
+        rvAdapter = new PictureAdapter(this, rvData, this);
         rvStoredPictures.setAdapter(rvAdapter);
         rvStoredPictures.setLayoutManager(layoutManager);
-        rvStoredPictures.addItemDecoration(new PictureAdapter.GridSpacingItemDecoration(2, 15,true));
     }
 
     /**
@@ -278,6 +338,11 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.It
         }
     }
 
+    private void vibrateDevice(long milliseconds) {
+        Vibrator vibe = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+        vibe.vibrate(milliseconds);
+    }
+
     /**
      * Background task to load all stored images
      */
@@ -296,6 +361,8 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.It
 
         @Override
         protected Void doInBackground(Void... voids) {
+            List<Picture> pictures = new ArrayList<>();
+
             Uri uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
 
             String[] projection = {
@@ -325,6 +392,16 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.It
                     pictures.add(picture);
                 }
                 Collections.reverse(pictures);
+
+                for (Picture picture : pictures) {
+                    String takenDate = picture.toLocalDate();
+
+                    if (!rvData.containsKey(takenDate)) {
+                        rvData.put(takenDate, new ArrayList<Picture>());
+                    }
+                    rvData.get(takenDate).add(picture);
+                }
+
                 cursor.close();
             }
             return null;
