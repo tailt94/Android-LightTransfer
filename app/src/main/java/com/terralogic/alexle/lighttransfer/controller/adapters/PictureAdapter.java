@@ -6,6 +6,7 @@ import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.CheckBox;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -54,8 +55,22 @@ public class PictureAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     @Override
     public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
         if (holder instanceof HeaderViewHolder) {
+            String takenDate = (String) getData(position);
+
+            boolean checked = true;
+            ArrayList<Picture> pictures = data.get(takenDate);
+            if (pictures != null) {
+                for (Picture picture : pictures) {
+                    if (!picture.isSelected()) {
+                        checked = false;
+                        break;
+                    }
+                }
+            }
+
             HeaderViewHolder headerHolder = (HeaderViewHolder) holder;
-            headerHolder.title.setText((String)getData(position));
+            headerHolder.title.setText(takenDate);
+            headerHolder.checkBox.setChecked(checked);
         } else if (holder instanceof ItemViewHolder) {
             ItemViewHolder itemHolder = (ItemViewHolder) holder;
             Picture picture = (Picture) getData(position);
@@ -138,16 +153,23 @@ public class PictureAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     }
 
     public class HeaderViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
+        private CheckBox checkBox;
         private TextView title;
         public HeaderViewHolder(View itemView) {
             super(itemView);
+            checkBox = itemView.findViewById(R.id.header_checkbox);
             title = itemView.findViewById(R.id.header_title);
-            title.setOnClickListener(this);
+            checkBox.setOnClickListener(this);
         }
 
         @Override
         public void onClick(View view) {
-            listener.onHeaderClick(getAdapterPosition());
+            if (checkBox.isChecked()) {
+                checkBox.setChecked(false);
+            } else {
+                checkBox.setChecked(true);
+            }
+            listener.onHeaderCheckBoxClick(getAdapterPosition());
         }
     }
 
@@ -178,7 +200,7 @@ public class PictureAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     }
 
     public interface RecyclerViewClickListener {
-        void onHeaderClick(int position);
+        void onHeaderCheckBoxClick(int position);
         void onItemClick(int position);
         void onItemLongClick(int position);
     }

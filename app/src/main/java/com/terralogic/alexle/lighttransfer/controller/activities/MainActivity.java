@@ -140,7 +140,7 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
     }
 
     @Override
-    public void onHeaderClick(int position) {
+    public void onHeaderCheckBoxClick(int position) {
         String takenDate = (String) rvAdapter.getData(position);
         changeMultiplePictureState(takenDate, !isAllPictureSelected(takenDate));
         vibrateDevice(50);
@@ -157,7 +157,7 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
         }
         picture.setSelected(isSelected);
         notifyToolbarLayoutChanged();
-        rvAdapter.notifyItemChanged(position);
+        rvAdapter.notifyDataSetChanged();
 
         vibrateDevice(50);
     }
@@ -180,36 +180,32 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
      * Check if all picture taken at the same date is selected or not
      */
     private boolean isAllPictureSelected(String takenDate) {
-        for (Map.Entry<String, ArrayList<Picture>> entry : rvData.entrySet()) {
-            if (takenDate.equals(entry.getKey())) {
-                ArrayList<Picture> pictures = entry.getValue();
-                for (Picture picture : pictures) {
-                    if (!picture.isSelected()) {
-                        return false;
-                    }
+        ArrayList<Picture> pictures = rvData.get(takenDate);
+        if (pictures != null) {
+            for (Picture picture : pictures) {
+                if (!picture.isSelected()) {
+                    return false;
                 }
-                break;
             }
+            return true;
         }
-        return true;
+        return false;
     }
 
     private void changeMultiplePictureState(String takenDate, boolean selected) {
-        for (Map.Entry<String, ArrayList<Picture>> entry : rvData.entrySet()) {
-            if (takenDate.equals(entry.getKey())) {
-                ArrayList<Picture> pictures = entry.getValue();
-                for (Picture picture : pictures) {
-                    boolean isSelected = picture.isSelected();
-                    if (selected != isSelected) {
-                        picture.setSelected(selected);
-                        if (selected) {
-                            selectedImageCount++;
-                        } else {
-                            selectedImageCount--;
-                        }
-                        notifyToolbarLayoutChanged();
-                        rvAdapter.notifyDataSetChanged();
+        ArrayList<Picture> pictures = rvData.get(takenDate);
+        if (pictures != null) {
+            for (Picture picture : pictures) {
+                boolean isSelected = picture.isSelected();
+                if (selected != isSelected) {
+                    picture.setSelected(selected);
+                    if (selected) {
+                        selectedImageCount++;
+                    } else {
+                        selectedImageCount--;
                     }
+                    notifyToolbarLayoutChanged();
+                    rvAdapter.notifyDataSetChanged();
                 }
             }
         }
