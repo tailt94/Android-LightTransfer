@@ -1,9 +1,21 @@
 <resources>
     <string name="app_name">Light Transfer</string>
+    <string name="facebook_app_id">162386177673106</string>
+    <string name="twitter_comsumer_key">y998zV0H0peaOqtk5VVjqOCtU</string>
+    <string name="twitter_comsumer_secret">P5Fe5dLs0Elib2uElKnFv0s5xhc9ZZjAv6n2VUQ0l92DWsi03g</string>
+    
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
 
+    <string name="option_share">Share</string>
     <string name="option_take_picture">Take picture</string>
 
+    <string name="social_network_chooser_dialog_title">Share with</string>
+
     <string name="main_activity_title">Pictures</string>
+
+    <string-array name="social_network_chooser_items">
+        <item>Facebook</item>
+        <item>Twitter</item>
+    </string-array>
 </resources>

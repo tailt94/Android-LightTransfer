@@ -2,11 +2,15 @@ package com.terralogic.alexle.lighttransfer.controller.activities;
 
 import android.Manifest;
 import android.annotation.TargetApi;
+import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
@@ -25,10 +29,25 @@ import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.Toast;
 
+import com.facebook.CallbackManager;
+import com.facebook.share.model.SharePhoto;
+import com.facebook.share.model.SharePhotoContent;
+import com.facebook.share.widget.ShareDialog;
 import com.terralogic.alexle.lighttransfer.R;
 import com.terralogic.alexle.lighttransfer.controller.adapters.PictureAdapter;
+import com.terralogic.alexle.lighttransfer.controller.dialogs.SocialNetworkChooserDialogFragment;
 import com.terralogic.alexle.lighttransfer.model.Picture;
+import com.twitter.sdk.android.core.Callback;
+import com.twitter.sdk.android.core.Result;
+import com.twitter.sdk.android.core.Twitter;
+import com.twitter.sdk.android.core.TwitterCore;
+import com.twitter.sdk.android.core.TwitterException;
+import com.twitter.sdk.android.core.TwitterSession;
+import com.twitter.sdk.android.core.identity.TwitterAuthClient;
+import com.twitter.sdk.android.tweetcomposer.ComposerActivity;
+import com.twitter.sdk.android.tweetcomposer.TweetComposer;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -38,15 +57,16 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-public class MainActivity extends AppCompatActivity implements PictureAdapter.RecyclerViewClickListener {
+
+public class MainActivity extends AppCompatActivity implements PictureAdapter.RecyclerViewClickListener,
+        DialogInterface.OnClickListener {
     private static final int PERMISSIONS_REQUEST_READ_EXTERNAL_STORAGE = 1;
     private static final int REQUEST_IMAGE_CAPTURE = 100;
-    private static final String BUNDLE_BACK_BUTTON_STATE = "BUNDLE_BACK_BUTTON_STATE";
     private static final String BUNDLE_SELECTED_IMAGE_COUNT= "BUNDLE_SELECTED_IMAGE_COUNT";
-    private static final String BUNDLE_TOOLBAR_TITLE = "BUNDLE_TOOLBAR_TITLE";
     private static final String BUNDLE_RECYCLER_VIEW_DATA = "BUNDLE_RECYCLER_VIEW_DATA";
 
     private Toolbar toolbar;
+    private Menu menu;
     private DrawerLayout drawer;
     private ActionBarDrawerToggle drawerToggle;
     private NavigationView navigationView;
@@ -58,6 +78,10 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
     private int selectedImageCount = 0;
     private boolean isBackButtonEnabled = false;
 
+    //Facebook
+    private CallbackManager facebookCallbackManager;
+    private ShareDialog facebookShareDialog;
+
     @SuppressWarnings("unchecked")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,10 +90,12 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
         bindViews();
         setupListeners();
 
+        //Facebook preparation
+        facebookCallbackManager = CallbackManager.Factory.create();
+        facebookShareDialog = new ShareDialog(this);
+
         if (savedInstanceState != null) {
-            showBackButton(savedInstanceState.getBoolean(BUNDLE_BACK_BUTTON_STATE));
             selectedImageCount = savedInstanceState.getInt(BUNDLE_SELECTED_IMAGE_COUNT);
-            getSupportActionBar().setTitle(savedInstanceState.getString(BUNDLE_TOOLBAR_TITLE));
             rvData = (LinkedHashMap<String, ArrayList<Picture>>) savedInstanceState.getSerializable(BUNDLE_RECYCLER_VIEW_DATA);
             setupRecyclerView();
         } else {
@@ -79,9 +105,7 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
-        outState.putBoolean(BUNDLE_BACK_BUTTON_STATE, isBackButtonEnabled);
         outState.putInt(BUNDLE_SELECTED_IMAGE_COUNT, selectedImageCount);
-        outState.putString(BUNDLE_TOOLBAR_TITLE, getSupportActionBar().getTitle().toString());
         outState.putSerializable(BUNDLE_RECYCLER_VIEW_DATA, rvData);
         super.onSaveInstanceState(outState);
     }
@@ -91,11 +115,15 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
         if (drawer.isDrawerOpen(navigationView)) {
             drawer.closeDrawer(navigationView);
         } else {
-            vibrateDevice(50);
-            resetAllImagesState();
-            notifyToolbarLayoutChanged();
-            rvAdapter.notifyDataSetChanged();
+            super.onBackPressed();
         }
+    }
+
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        this.menu = menu;
+        notifyToolbarLayoutChanged();
+        return true;
     }
 
     @Override
@@ -105,8 +133,38 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
     }
 
     @Override
+    public void onClick(DialogInterface dialogInterface, int position) {
+        switch (position) {
+            case 0:
+                List<Uri> shareUris = getSelectedPicturesUri();
+                List<SharePhoto> sharePhotos = new ArrayList<>();
+                for (Uri uri : shareUris) {
+                    SharePhoto photo = new SharePhoto.Builder()
+                            .setImageUrl(uri)
+                            .build();
+                    sharePhotos.add(photo);
+                }
+
+                SharePhotoContent content = new SharePhotoContent.Builder()
+                        .addPhotos(sharePhotos)
+                        .build();
+                facebookShareDialog.show(content);
+                break;
+            case 1:
+                TweetComposer.Builder builder = new TweetComposer.Builder(this)
+                        .image(getSelectedPicturesUri().get(0));
+                builder.show();
+                break;
+        }
+    }
+
+    @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
+            case R.id.action_share:
+                SocialNetworkChooserDialogFragment dialog = new SocialNetworkChooserDialogFragment();
+                dialog.show(getSupportFragmentManager(), "SocialNetworkChooserDialogFragment");
+                return true;
             case R.id.action_take_picture:
                 dispatchTakePictureIntent();
                 return true;
@@ -117,6 +175,7 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        facebookCallbackManager.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
             //Reload all images after taking a picture
             rvData.clear();
@@ -176,6 +235,19 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
         startActivity(intent);
     }
 
+    private List<Uri> getSelectedPicturesUri() {
+        List<Uri> uris = new ArrayList<>();
+        for (Map.Entry<String, ArrayList<Picture>> entry : rvData.entrySet()) {
+            ArrayList<Picture> pictures = entry.getValue();
+            for (Picture picture : pictures) {
+                if (picture.isSelected()) {
+                    uris.add(Uri.fromFile(new File(picture.getLocation())));
+                }
+            }
+        }
+        return uris;
+    }
+
     /**
      * Check if all picture taken at the same date is selected or not
      */
@@ -217,9 +289,11 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
     private void notifyToolbarLayoutChanged() {
         if (selectedImageCount > 0) {
             showBackButton(true);
+            setMenuItemVisible(R.id.action_share, true);
             getSupportActionBar().setTitle(Integer.toString(selectedImageCount));
         } else if (selectedImageCount == 0) {
             showBackButton(false);
+            setMenuItemVisible(R.id.action_share, false);
             getSupportActionBar().setTitle(R.string.main_activity_title);
         }
     }
@@ -247,6 +321,11 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
         }
     }
 
+    private void setMenuItemVisible(int menuItemId, boolean visible) {
+        MenuItem item = menu.findItem(menuItemId);
+        item.setVisible(visible);
+    }
+
     private void showBackButton(boolean enable) {
         if (enable) {
             // Remove hamburger
@@ -256,7 +335,10 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
             drawerToggle.setToolbarNavigationClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    onBackPressed();
+                    vibrateDevice(50);
+                    resetAllImagesState();
+                    notifyToolbarLayoutChanged();
+                    rvAdapter.notifyDataSetChanged();
                 }
             });
 
