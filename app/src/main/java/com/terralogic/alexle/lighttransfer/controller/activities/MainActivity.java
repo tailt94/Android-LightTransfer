@@ -2,15 +2,12 @@ package com.terralogic.alexle.lighttransfer.controller.activities;
 
 import android.Manifest;
 import android.annotation.TargetApi;
-import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
@@ -29,24 +26,20 @@ import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.Toast;
 
 import com.facebook.CallbackManager;
 import com.facebook.share.model.SharePhoto;
 import com.facebook.share.model.SharePhotoContent;
 import com.facebook.share.widget.ShareDialog;
+import com.google.android.flexbox.AlignItems;
+import com.google.android.flexbox.FlexDirection;
+import com.google.android.flexbox.FlexWrap;
+import com.google.android.flexbox.FlexboxLayoutManager;
 import com.terralogic.alexle.lighttransfer.R;
 import com.terralogic.alexle.lighttransfer.controller.adapters.PictureAdapter;
 import com.terralogic.alexle.lighttransfer.controller.dialogs.SocialNetworkChooserDialogFragment;
 import com.terralogic.alexle.lighttransfer.model.Picture;
-import com.twitter.sdk.android.core.Callback;
-import com.twitter.sdk.android.core.Result;
-import com.twitter.sdk.android.core.Twitter;
-import com.twitter.sdk.android.core.TwitterCore;
-import com.twitter.sdk.android.core.TwitterException;
-import com.twitter.sdk.android.core.TwitterSession;
-import com.twitter.sdk.android.core.identity.TwitterAuthClient;
-import com.twitter.sdk.android.tweetcomposer.ComposerActivity;
+import com.terralogic.alexle.lighttransfer.util.SpannedGridLayoutManager;
 import com.twitter.sdk.android.tweetcomposer.TweetComposer;
 
 import java.io.File;
@@ -378,18 +371,53 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
     }
 
     private void setupRecyclerView() {
-        GridLayoutManager layoutManager = new GridLayoutManager(this, 2);
+        rvAdapter = new PictureAdapter(this, rvData, this);
+        rvStoredPictures.setAdapter(rvAdapter);
+
+        /*GridLayoutManager layoutManager = new GridLayoutManager(this, 3);
         layoutManager.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
             @Override
             public int getSpanSize(int position) {
                 if (rvAdapter.isHeader(position)) {
+                    return 3;
+                }
+                if (rvAdapter.isHeader(position - 1)) {
                     return 2;
                 }
                 return 1;
             }
-        });
-        rvAdapter = new PictureAdapter(this, rvData, this);
-        rvStoredPictures.setAdapter(rvAdapter);
+        });*/
+
+        SpannedGridLayoutManager layoutManager = new SpannedGridLayoutManager(
+                new SpannedGridLayoutManager.GridSpanLookup() {
+                    @Override
+                    public SpannedGridLayoutManager.SpanInfo getSpanInfo(int position) {
+                        if (rvAdapter.isHeader(position)) {
+                            return new SpannedGridLayoutManager.SpanInfo(3, 1);
+                        } else {
+                            int lastHeaderPosition = position;
+                            while (!rvAdapter.isHeader(lastHeaderPosition)) {
+                                lastHeaderPosition--;
+                            }
+                            int relativePosition = position - lastHeaderPosition - 1;
+                            if (relativePosition % 13 == 0) {
+                                return new SpannedGridLayoutManager.SpanInfo(3, 2);
+                            } else if (relativePosition % 13 == 7 || relativePosition % 13 == 11) {
+                                return new SpannedGridLayoutManager.SpanInfo(2, 2);
+                            }
+                        }
+                        return new SpannedGridLayoutManager.SpanInfo(1, 1);
+                    }
+                },
+                3,
+                1f
+        );
+
+        /*FlexboxLayoutManager layoutManager = new FlexboxLayoutManager(this);
+        layoutManager.setFlexWrap(FlexWrap.WRAP);
+        layoutManager.setFlexDirection(FlexDirection.ROW);
+        layoutManager.setAlignItems(AlignItems.STRETCH);*/
+
         rvStoredPictures.setLayoutManager(layoutManager);
     }
 

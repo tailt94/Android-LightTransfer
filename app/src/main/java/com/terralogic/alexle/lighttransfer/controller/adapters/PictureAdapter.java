@@ -1,14 +1,14 @@
 package com.terralogic.alexle.lighttransfer.controller.adapters;
 
-import android.app.Dialog;
 import android.content.Context;
-import android.graphics.Rect;
+import android.support.v7.widget.CardView;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CheckBox;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
@@ -86,7 +86,7 @@ public class PictureAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                     .placeholder(R.drawable.image_placeholder)
                     .centerCrop()
                     .diskCacheStrategy(DiskCacheStrategy.NONE)
-                    .into(itemHolder.pictureImage);
+                    .into(itemHolder.pictureContent);
         }
     }
 
@@ -154,10 +154,12 @@ public class PictureAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     }
 
     public class HeaderViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
+        private LinearLayout header;
         private CheckBox checkBox;
         private TextView title;
         public HeaderViewHolder(View itemView) {
             super(itemView);
+            header = itemView.findViewById(R.id.header_holder);
             checkBox = itemView.findViewById(R.id.header_checkbox);
             title = itemView.findViewById(R.id.header_title);
             checkBox.setOnClickListener(this);
@@ -176,16 +178,18 @@ public class PictureAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
     public class ItemViewHolder extends RecyclerView.ViewHolder implements View.OnLongClickListener,
             View.OnClickListener{
-        private ImageView pictureImage;
+        private CardView pictureCard;
+        private ImageView pictureContent;
         private ImageView iconCheck;
 
         public ItemViewHolder(View itemView) {
             super(itemView);
-            pictureImage = itemView.findViewById(R.id.picture_image);
+            pictureCard = itemView.findViewById(R.id.picture_card);
+            pictureContent = itemView.findViewById(R.id.picture_content);
             iconCheck = itemView.findViewById(R.id.icon_check);
 
-            pictureImage.setOnLongClickListener(this);
-            pictureImage.setOnClickListener(this);
+            pictureContent.setOnLongClickListener(this);
+            pictureContent.setOnClickListener(this);
         }
 
         @Override
@@ -204,40 +208,5 @@ public class PictureAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         void onHeaderCheckBoxClick(int position);
         void onItemClick(int position);
         void onItemLongClick(int position);
-    }
-
-    public static class GridSpacingItemDecoration extends RecyclerView.ItemDecoration {
-
-        private int spanCount;
-        private int spacing;
-        private boolean includeEdge;
-
-        public GridSpacingItemDecoration(int spanCount, int spacing, boolean includeEdge) {
-            this.spanCount = spanCount;
-            this.spacing = spacing;
-            this.includeEdge = includeEdge;
-        }
-
-        @Override
-        public void getItemOffsets(Rect outRect, View view, RecyclerView parent, RecyclerView.State state) {
-            int position = parent.getChildAdapterPosition(view); // item position
-            int column = position % spanCount; // item column
-
-            if (includeEdge) {
-                outRect.left = spacing - column * spacing / spanCount; // spacing - column * ((1f / spanCount) * spacing)
-                outRect.right = (column + 1) * spacing / spanCount; // (column + 1) * ((1f / spanCount) * spacing)
-
-                if (position < spanCount) { // top edge
-                    outRect.top = spacing;
-                }
-                outRect.bottom = spacing; // item bottom
-            } else {
-                outRect.left = column * spacing / spanCount; // column * ((1f / spanCount) * spacing)
-                outRect.right = spacing - (column + 1) * spacing / spanCount; // spacing - (column + 1) * ((1f /    spanCount) * spacing)
-                if (position >= spanCount) {
-                    outRect.top = spacing; // item top
-                }
-            }
-        }
     }
 }

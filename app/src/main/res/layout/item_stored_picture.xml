@@ -1,21 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/picture_layout"
+<android.support.v7.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:card_view="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/picture_card"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
-
-    <ImageView
-        android:id="@+id/picture_image"
+    android:layout_height="match_parent"
+    card_view:cardUseCompatPadding="true">
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="@dimen/stored_picture_height"
-        android:scaleType="centerCrop" />
-    <ImageView
-        android:id="@+id/icon_check"
-        android:layout_width="@dimen/stored_picture_icon_check_size"
-        android:layout_height="@dimen/stored_picture_icon_check_size"
-        android:layout_marginStart="@dimen/stored_picture_icon_check_margin"
-        android:layout_marginTop="@dimen/stored_picture_icon_check_margin"
-        android:src="@drawable/ic_check"
-        android:visibility="invisible"
-        android:layout_gravity="start|top"/>
-</FrameLayout>
+        android:layout_height="match_parent">
+
+        <ImageView
+            android:id="@+id/picture_content"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop" />
+        <ImageView
+            android:id="@+id/icon_check"
+            android:layout_width="@dimen/stored_picture_icon_check_size"
+            android:layout_height="@dimen/stored_picture_icon_check_size"
+            android:layout_marginStart="@dimen/stored_picture_icon_check_margin"
+            android:layout_marginTop="@dimen/stored_picture_icon_check_margin"
+            android:src="@drawable/ic_check"
+            android:visibility="invisible"
+            android:layout_gravity="start|top"/>
+    </FrameLayout>
+</android.support.v7.widget.CardView>
