@@ -3,6 +3,8 @@ package com.terralogic.alexle.lighttransfer.controller.activities;
 import android.Manifest;
 import android.annotation.TargetApi;
 import android.app.ProgressDialog;
+import android.app.SearchManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -20,8 +22,8 @@ import android.support.v4.content.FileProvider;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.SearchView;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -31,14 +33,10 @@ import com.facebook.CallbackManager;
 import com.facebook.share.model.SharePhoto;
 import com.facebook.share.model.SharePhotoContent;
 import com.facebook.share.widget.ShareDialog;
-import com.google.android.flexbox.AlignItems;
-import com.google.android.flexbox.FlexDirection;
-import com.google.android.flexbox.FlexWrap;
-import com.google.android.flexbox.FlexboxLayoutManager;
 import com.terralogic.alexle.lighttransfer.R;
-import com.terralogic.alexle.lighttransfer.controller.adapters.PictureAdapter;
+import com.terralogic.alexle.lighttransfer.controller.adapters.LocalPictureAdapter;
 import com.terralogic.alexle.lighttransfer.controller.dialogs.SocialNetworkChooserDialogFragment;
-import com.terralogic.alexle.lighttransfer.model.Picture;
+import com.terralogic.alexle.lighttransfer.model.LocalPicture;
 import com.terralogic.alexle.lighttransfer.util.SpannedGridLayoutManager;
 import com.twitter.sdk.android.tweetcomposer.TweetComposer;
 
@@ -51,7 +49,7 @@ import java.util.List;
 import java.util.Map;
 
 
-public class MainActivity extends AppCompatActivity implements PictureAdapter.RecyclerViewClickListener,
+public class MainActivity extends AppCompatActivity implements LocalPictureAdapter.RecyclerViewClickListener,
         DialogInterface.OnClickListener {
     private static final int PERMISSIONS_REQUEST_READ_EXTERNAL_STORAGE = 1;
     private static final int REQUEST_IMAGE_CAPTURE = 100;
@@ -64,9 +62,9 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
     private ActionBarDrawerToggle drawerToggle;
     private NavigationView navigationView;
     private RecyclerView rvStoredPictures;
-    private PictureAdapter rvAdapter;
+    private LocalPictureAdapter rvAdapter;
 
-    private LinkedHashMap<String, ArrayList<Picture>> rvData = new LinkedHashMap<>();
+    private LinkedHashMap<String, ArrayList<LocalPicture>> rvData = new LinkedHashMap<>();
 
     private int selectedImageCount = 0;
     private boolean isBackButtonEnabled = false;
@@ -89,7 +87,7 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
 
         if (savedInstanceState != null) {
             selectedImageCount = savedInstanceState.getInt(BUNDLE_SELECTED_IMAGE_COUNT);
-            rvData = (LinkedHashMap<String, ArrayList<Picture>>) savedInstanceState.getSerializable(BUNDLE_RECYCLER_VIEW_DATA);
+            rvData = (LinkedHashMap<String, ArrayList<LocalPicture>>) savedInstanceState.getSerializable(BUNDLE_RECYCLER_VIEW_DATA);
             setupRecyclerView();
         } else {
             loadImages();
@@ -122,6 +120,11 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.main, menu);
+
+        SearchManager searchManager = (SearchManager) getSystemService(Context.SEARCH_SERVICE);
+        SearchView searchView = (SearchView) menu.findItem(R.id.action_search).getActionView();
+        searchView.setSearchableInfo(searchManager.getSearchableInfo(new ComponentName(this, SearchResultActivity.class)));
+        searchView.setIconifiedByDefault(false);
         return true;
     }
 
@@ -154,6 +157,8 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
+            case R.id.action_search:
+                return true;
             case R.id.action_share:
                 SocialNetworkChooserDialogFragment dialog = new SocialNetworkChooserDialogFragment();
                 dialog.show(getSupportFragmentManager(), "SocialNetworkChooserDialogFragment");
@@ -200,7 +205,7 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
 
     @Override
     public void onItemClick(int position) {
-        Picture picture = (Picture) rvAdapter.getData(position);
+        LocalPicture picture = (LocalPicture) rvAdapter.getData(position);
         boolean isSelected = !picture.isSelected();
         if (isSelected) {
             selectedImageCount++;
@@ -216,7 +221,7 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
 
     @Override
     public void onItemLongClick(int position) {
-        Picture picture = (Picture) rvAdapter.getData(position);
+        LocalPicture picture = (LocalPicture) rvAdapter.getData(position);
         File imageFile = new File(picture.getLocation());
         Uri imageUri = FileProvider.getUriForFile(this,
                 getApplicationContext().getPackageName() + ".provider",
@@ -230,9 +235,9 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
 
     private List<Uri> getSelectedPicturesUri() {
         List<Uri> uris = new ArrayList<>();
-        for (Map.Entry<String, ArrayList<Picture>> entry : rvData.entrySet()) {
-            ArrayList<Picture> pictures = entry.getValue();
-            for (Picture picture : pictures) {
+        for (Map.Entry<String, ArrayList<LocalPicture>> entry : rvData.entrySet()) {
+            ArrayList<LocalPicture> pictures = entry.getValue();
+            for (LocalPicture picture : pictures) {
                 if (picture.isSelected()) {
                     uris.add(Uri.fromFile(new File(picture.getLocation())));
                 }
@@ -245,9 +250,9 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
      * Check if all picture taken at the same date is selected or not
      */
     private boolean isAllPictureSelected(String takenDate) {
-        ArrayList<Picture> pictures = rvData.get(takenDate);
+        ArrayList<LocalPicture> pictures = rvData.get(takenDate);
         if (pictures != null) {
-            for (Picture picture : pictures) {
+            for (LocalPicture picture : pictures) {
                 if (!picture.isSelected()) {
                     return false;
                 }
@@ -258,9 +263,9 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
     }
 
     private void changeMultiplePictureState(String takenDate, boolean selected) {
-        ArrayList<Picture> pictures = rvData.get(takenDate);
+        ArrayList<LocalPicture> pictures = rvData.get(takenDate);
         if (pictures != null) {
-            for (Picture picture : pictures) {
+            for (LocalPicture picture : pictures) {
                 boolean isSelected = picture.isSelected();
                 if (selected != isSelected) {
                     picture.setSelected(selected);
@@ -296,9 +301,9 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
      */
     private void resetAllImagesState() {
         selectedImageCount = 0;
-        for (Map.Entry<String, ArrayList<Picture>> entry : rvData.entrySet()) {
-            ArrayList<Picture> pictures = entry.getValue();
-            for (Picture picture : pictures) {
+        for (Map.Entry<String, ArrayList<LocalPicture>> entry : rvData.entrySet()) {
+            ArrayList<LocalPicture> pictures = entry.getValue();
+            for (LocalPicture picture : pictures) {
                 picture.setSelected(false);
             }
         }
@@ -351,7 +356,7 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
         setSupportActionBar(toolbar);
         drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         navigationView = (NavigationView) findViewById(R.id.nav_view);
-        rvStoredPictures = (RecyclerView) findViewById(R.id.rv_stored_pictures);
+        rvStoredPictures = (RecyclerView) findViewById(R.id.rv_local_picture);
     }
 
     private void setupListeners() {
@@ -371,7 +376,7 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
     }
 
     private void setupRecyclerView() {
-        rvAdapter = new PictureAdapter(this, rvData, this);
+        rvAdapter = new LocalPictureAdapter(this, rvData, this);
         rvStoredPictures.setAdapter(rvAdapter);
 
         /*GridLayoutManager layoutManager = new GridLayoutManager(this, 3);
@@ -467,7 +472,7 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
 
         @Override
         protected Void doInBackground(Void... voids) {
-            List<Picture> pictures = new ArrayList<>();
+            List<LocalPicture> pictures = new ArrayList<>();
 
             Uri uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
 
@@ -481,7 +486,7 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
             Cursor cursor = getContentResolver().query(uri, projection, null, null, null);
             if (cursor != null) {
                 while (cursor.moveToNext()) {
-                    Picture picture = new Picture();
+                    LocalPicture picture = new LocalPicture();
 
                     int columnNameIndex = cursor.getColumnIndex(MediaStore.Images.Media.DISPLAY_NAME);
                     int columnTakenDateIndex = cursor.getColumnIndex(MediaStore.Images.Media.DATE_TAKEN);
@@ -499,11 +504,11 @@ public class MainActivity extends AppCompatActivity implements PictureAdapter.Re
                 }
                 Collections.reverse(pictures);
 
-                for (Picture picture : pictures) {
+                for (LocalPicture picture : pictures) {
                     String takenDate = picture.toLocalDate();
 
                     if (!rvData.containsKey(takenDate)) {
-                        rvData.put(takenDate, new ArrayList<Picture>());
+                        rvData.put(takenDate, new ArrayList<LocalPicture>());
                     }
                     rvData.get(takenDate).add(picture);
                 }

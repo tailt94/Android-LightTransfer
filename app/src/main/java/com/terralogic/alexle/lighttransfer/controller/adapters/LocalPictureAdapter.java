@@ -13,7 +13,7 @@ import android.widget.TextView;
 
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.terralogic.alexle.lighttransfer.R;
-import com.terralogic.alexle.lighttransfer.model.Picture;
+import com.terralogic.alexle.lighttransfer.model.LocalPicture;
 import com.terralogic.alexle.lighttransfer.util.GlideApp;
 
 import java.io.File;
@@ -25,15 +25,15 @@ import java.util.Map;
  * Created by alex.le on 23-Aug-17.
  */
 
-public class PictureAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+public class LocalPictureAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private static final int TYPE_HEADER = 0;
     private static final int TYPE_ITEM = 1;
 
     private Context context;
-    private LinkedHashMap<String, ArrayList<Picture>> data;
+    private LinkedHashMap<String, ArrayList<LocalPicture>> data;
     private RecyclerViewClickListener listener;
 
-    public PictureAdapter(Context context, LinkedHashMap<String, ArrayList<Picture>> data, RecyclerViewClickListener listener) {
+    public LocalPictureAdapter(Context context, LinkedHashMap<String, ArrayList<LocalPicture>> data, RecyclerViewClickListener listener) {
         this.context = context;
         this.data = data;
         this.listener = listener;
@@ -43,11 +43,11 @@ public class PictureAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
         if (viewType == TYPE_HEADER) {
             LayoutInflater inflater = LayoutInflater.from(parent.getContext());
-            View view = inflater.inflate(R.layout.header_stored_picture, parent, false);
+            View view = inflater.inflate(R.layout.header_local_picture, parent, false);
             return new HeaderViewHolder(view);
         } else if (viewType == TYPE_ITEM) {
             LayoutInflater inflater = LayoutInflater.from(parent.getContext());
-            View view = inflater.inflate(R.layout.item_stored_picture, parent, false);
+            View view = inflater.inflate(R.layout.item_local_picture, parent, false);
             return new ItemViewHolder(view);
         }
         throw new RuntimeException("No type matches " + viewType);
@@ -59,9 +59,9 @@ public class PictureAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             String takenDate = (String) getData(position);
 
             boolean checked = true;
-            ArrayList<Picture> pictures = data.get(takenDate);
+            ArrayList<LocalPicture> pictures = data.get(takenDate);
             if (pictures != null) {
-                for (Picture picture : pictures) {
+                for (LocalPicture picture : pictures) {
                     if (!picture.isSelected()) {
                         checked = false;
                         break;
@@ -74,7 +74,7 @@ public class PictureAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             headerHolder.checkBox.setChecked(checked);
         } else if (holder instanceof ItemViewHolder) {
             ItemViewHolder itemHolder = (ItemViewHolder) holder;
-            Picture picture = (Picture) getData(position);
+            LocalPicture picture = (LocalPicture) getData(position);
             if (picture.isSelected()) {
                 itemHolder.iconCheck.setVisibility(View.VISIBLE);
             } else {
@@ -101,7 +101,7 @@ public class PictureAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     @Override
     public int getItemCount() {
         int size = 0;
-        for (Map.Entry<String, ArrayList<Picture>> entry : data.entrySet()) {
+        for (Map.Entry<String, ArrayList<LocalPicture>> entry : data.entrySet()) {
             size += entry.getValue().size() + 1;
         }
         return size;
@@ -113,7 +113,7 @@ public class PictureAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
      */
     public boolean isHeader(int position) {
         int size = 0;
-        for (Map.Entry<String, ArrayList<Picture>> entry : data.entrySet()) {
+        for (Map.Entry<String, ArrayList<LocalPicture>> entry : data.entrySet()) {
             if (size < position) {
                 size += entry.getValue().size() + 1;
             } else {
@@ -129,16 +129,16 @@ public class PictureAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     /**
      *
      * @param position The position of the item in adapter data set
-     * @return String if the data at position is Header or Picture if the data is Item
+     * @return String if the data at position is Header or LocalPicture if the data is Item
      */
     public Object getData(int position) {
         int startIndex = 0;
         int size = 0;
 
         String key = null;
-        ArrayList<Picture> value = null;
+        ArrayList<LocalPicture> value = null;
 
-        for (Map.Entry<String, ArrayList<Picture>> entry : data.entrySet()) {
+        for (Map.Entry<String, ArrayList<LocalPicture>> entry : data.entrySet()) {
             startIndex = size;
             size += entry.getValue().size() + 1;
             if (size > position) {

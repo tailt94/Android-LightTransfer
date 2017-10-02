@@ -8,16 +8,16 @@ import java.util.Date;
  * Created by alex.le on 23-Aug-17.
  */
 
-public class Picture implements Serializable {
+public class LocalPicture implements Serializable {
     private String name;
     private Date takenDate;
     private String location;
     private boolean isSelected = false;
 
-    public Picture() {
+    public LocalPicture() {
     }
 
-    public Picture(String name, Date takenDate, String location) {
+    public LocalPicture(String name, Date takenDate, String location) {
         this.name = name;
         this.takenDate = takenDate;
         this.location = location;
